@@ -1,0 +1,759 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>记忆面包 - 学习计划管理</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <!-- 引入图标库 -->
+    <script src="https://unpkg.com/@phosphor-icons/web"></script>
+    <!-- 引入礼花特效库 -->
+    <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Noto Sans SC', sans-serif;
+            background-color: #FAFAF9;
+            color: #44403C;
+            -webkit-tap-highlight-color: transparent;
+        }
+        ::-webkit-scrollbar { width: 0px; background: transparent; }
+        
+        .fade-in { animation: fadeIn 0.3s ease-out forwards; }
+        .slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
+        .pop-in { animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
+        
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
+        @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+
+        /* 马卡龙配色 - 短期（粉） */
+        .bg-macaron-pink { background-color: #FFF0F5; border: 1px solid #FBCFE8; } 
+        .text-macaron-pink-dark { color: #9D174D; } 
+        .btn-add-pink { border-color: #FBCFE8; background-color: rgba(255, 255, 255, 0.6); color: #DB2777; }
+
+        /* 马卡龙配色 - 长期（绿） */
+        .bg-macaron-green { background-color: #F0FDF4; border: 1px solid #BBF7D0; }
+        .text-macaron-green-dark { color: #166534; } 
+        .btn-add-green { border-color: #BBF7D0; background-color: rgba(255, 255, 255, 0.6); color: #16A34A; }
+        
+        /* 状态样式 */
+        .state-done { background-color: #ECFDF5; border-color: #A7F3D0; }
+        .state-done .status-text { color: #059669; }
+        .state-missed { background-color: #F5F5F4; border-color: #E7E5E4; opacity: 0.8; }
+        .state-missed .main-text { text-decoration: line-through; color: #A8A29E; }
+        .state-today { background-color: #FFF1F2; border-color: #FECDD3; box-shadow: 0 4px 6px -1px rgba(244, 63, 94, 0.1); }
+        .state-today .status-text { color: #E11D48; font-weight: bold; }
+        
+        .card-shadow { box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); }
+        .btn-press:active { transform: scale(0.95); }
+
+        /* 删除按钮样式 */
+        .delete-btn-wrapper {
+            position: absolute;
+            top: 4px;
+            right: 4px;
+            z-index: 50;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        .delete-btn {
+            width: 32px;
+            height: 32px;
+            border-radius: 50%;
+            background: rgba(255, 255, 255, 0.95);
+            border: 1px solid #FEE2E2;
+            color: #EF4444;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .delete-btn:active { transform: scale(0.9); background: #FECACA; }
+
+        /* 荣誉弹窗样式 */
+        .modal-overlay {
+            background-color: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(8px);
+        }
+    </style>
+</head>
+<body class="min-h-screen pb-safe">
+
+    <!-- 页面容器 -->
+    <div id="app" class="max-w-md mx-auto min-h-screen relative overflow-hidden bg-stone-50">
+        
+        <!-- View 1: 首页列表 (Home) -->
+        <div id="view-home" class="p-6 pb-24 min-h-screen flex flex-col gap-6 fade-in">
+            <header class="text-center mt-4 mb-2">
+                <h1 class="text-3xl font-bold text-stone-800 tracking-tight flex items-center justify-center gap-2">
+                    我的计划列表 <i class="ph-fill ph-notebook text-rose-400"></i>
+                </h1>
+                <p class="text-stone-400 text-xs mt-1">坚持复习，对抗遗忘</p>
+            </header>
+
+            <!-- 短期记忆区 (马卡龙粉) -->
+            <section class="bg-macaron-pink rounded-[2rem] p-5 shadow-sm transition-all">
+                <div class="flex justify-between items-center mb-4 px-1">
+                    <h2 class="text-lg font-bold text-macaron-pink-dark flex items-center gap-2">
+                        <i class="ph-fill ph-lightning text-pink-500"></i> 短期记忆
+                    </h2>
+                    <span class="text-xs bg-white/60 px-2 py-1 rounded-lg text-pink-700 font-medium" id="count-short">0/9</span>
+                </div>
+                <div class="grid grid-cols-3 gap-3" id="list-short"></div>
+            </section>
+
+            <!-- 长期记忆区 (马卡龙绿) -->
+            <section class="bg-macaron-green rounded-[2rem] p-5 shadow-sm transition-all">
+                <div class="flex justify-between items-center mb-4 px-1">
+                    <h2 class="text-lg font-bold text-macaron-green-dark flex items-center gap-2">
+                        <i class="ph-fill ph-brain text-green-500"></i> 长期记忆
+                    </h2>
+                    <span class="text-xs bg-white/60 px-2 py-1 rounded-lg text-green-700 font-medium" id="count-long">0/9</span>
+                </div>
+                <div class="grid grid-cols-3 gap-3" id="list-long"></div>
+            </section>
+        </div>
+
+        <!-- View 2: 新建任务页 (Add) -->
+        <div id="view-add" class="hidden absolute inset-0 z-20 bg-white p-6 flex flex-col">
+            <div id="add-bg-blob" class="absolute -top-20 -right-20 w-64 h-64 bg-pink-100 rounded-full blur-3xl pointer-events-none opacity-60"></div>
+            
+            <header class="mt-8 mb-10 text-center relative z-10">
+                <button onclick="switchView('home')" class="absolute left-0 top-1 p-2 text-stone-400 hover:text-stone-800 transition">
+                    <i class="ph-bold ph-caret-left text-2xl"></i>
+                </button>
+                <h1 class="text-2xl font-bold text-stone-800">记忆面包 🍞</h1>
+                <p class="text-stone-400 text-xs mt-1">创建新的记忆周期</p>
+            </header>
+
+            <div class="flex-1 flex flex-col gap-6 relative z-10">
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-stone-400 uppercase tracking-wider ml-1">学习内容</label>
+                    <input type="text" id="input-title" placeholder="例如：英语 Unit 1" 
+                        class="w-full text-xl font-bold bg-stone-50 text-stone-800 placeholder-stone-300 rounded-2xl px-5 py-5 border-2 border-transparent focus:bg-white focus:border-rose-200 outline-none transition-all card-shadow">
+                </div>
+                
+                <div class="space-y-2">
+                    <label id="label-date" class="text-xs font-bold text-stone-400 uppercase tracking-wider ml-1">学习日期</label>
+                    <input type="date" id="input-date" 
+                        class="w-full text-lg bg-stone-50 text-stone-600 rounded-2xl px-5 py-4 border-2 border-transparent focus:bg-white focus:border-rose-200 outline-none transition-all card-shadow font-mono">
+                </div>
+                
+                <div class="space-y-2">
+                    <label class="text-xs font-bold text-stone-400 uppercase tracking-wider ml-1">所属分类</label>
+                    <div id="add-type-badge" class="w-full text-center py-4 rounded-2xl font-bold transition-all text-lg flex items-center justify-center gap-2 cursor-default select-none">
+                        <!-- JS会自动填充 -->
+                    </div>
+                </div>
+
+                <button onclick="createTask()" class="w-full mt-auto mb-8 bg-rose-500 hover:bg-rose-600 text-white text-lg font-bold py-4 rounded-full shadow-lg shadow-rose-200 transition-all btn-press flex items-center justify-center gap-2">
+                    <i class="ph-bold ph-sparkle"></i> 生成复习表
+                </button>
+            </div>
+        </div>
+
+        <!-- View 3: 详情页 (Detail) -->
+        <div id="view-detail" class="hidden absolute inset-0 z-30 bg-stone-50 overflow-y-auto">
+            <div class="max-w-md mx-auto min-h-screen flex flex-col">
+                <!-- 头部区域 -->
+                <div class="sticky top-0 bg-stone-50/90 backdrop-blur-md z-40 px-6 py-4 flex justify-between items-center border-b border-stone-100">
+                    <button onclick="switchView('home')" class="p-2 -ml-2 text-stone-500 hover:text-stone-800 btn-press">
+                        <i class="ph-bold ph-caret-left text-xl"></i>
+                    </button>
+                    
+                    <!-- 可编辑标题区域 -->
+                    <div class="flex-1 flex justify-center items-center relative mx-4 h-8" onclick="startEditTitle()">
+                        <h2 id="detail-title" class="text-lg font-bold text-stone-800 truncate max-w-[180px] cursor-pointer hover:opacity-70 transition-opacity">任务标题</h2>
+                        <i class="ph-bold ph-pencil-simple text-stone-300 ml-1 text-sm pointer-events-none"></i>
+                        <input type="text" id="detail-title-input" class="hidden absolute inset-0 w-full text-center text-lg font-bold text-stone-800 bg-stone-50 border-b-2 border-rose-400 outline-none" onblur="saveEditTitle()" onkeydown="handleEditKey(event)">
+                    </div>
+
+                    <button onclick="deleteCurrentTask()" class="p-2 -mr-2 text-stone-300 hover:text-red-500 btn-press transition-colors">
+                        <i class="ph-bold ph-trash text-xl"></i>
+                    </button>
+                </div>
+
+                <div class="p-6 flex flex-col gap-6">
+                    <div class="flex justify-between items-end px-2">
+                        <div>
+                            <p class="text-xs text-stone-400">当前进度</p>
+                            <p id="detail-progress" class="text-sm font-bold text-stone-600 mt-1">0/0 已完成</p>
+                        </div>
+                        <div class="text-right">
+                            <span class="text-3xl font-bold text-rose-500" id="detail-cycle-val">30</span>
+                            <span class="text-xs text-stone-500 font-medium" id="detail-cycle-unit">天周期</span>
+                        </div>
+                    </div>
+                    <div id="timeline-container" class="flex flex-col relative pb-4"></div>
+                    
+                    <div class="bg-white rounded-3xl p-5 shadow-sm border border-stone-100 mb-8">
+                        <div class="flex justify-between items-center mb-4">
+                            <h3 class="text-sm font-bold text-stone-800 flex items-center gap-2">
+                                <i class="ph-fill ph-chart-line-up text-rose-400"></i> 记忆原理
+                            </h3>
+                            <span class="text-[10px] text-stone-400 bg-stone-50 px-2 py-1 rounded" id="chart-tag">艾宾浩斯</span>
+                        </div>
+                        <div class="relative w-full h-56"> 
+                            <canvas id="memoryChart"></canvas>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- View 4: 庆祝弹窗 -->
+        <div id="celebration-modal" onclick="closeCelebration()" class="hidden fixed inset-0 z-50 flex items-center justify-center modal-overlay p-6 cursor-pointer">
+            <div class="bg-white rounded-[2.5rem] p-8 shadow-2xl text-center transform pop-in relative overflow-hidden border-4 border-amber-100 max-w-sm w-full">
+                <div class="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-amber-50 to-transparent opacity-50"></div>
+                <div class="relative z-10">
+                    <div class="text-6xl mb-4 animate-bounce">👑</div>
+                    <h2 class="text-2xl font-bold text-stone-800 mb-2">恭喜达成</h2>
+                    <div class="text-3xl font-bold text-transparent bg-clip-text bg-gradient-to-r from-amber-500 to-orange-500 mb-6 tracking-tight">
+                        记忆大王称号
+                    </div>
+                    <p class="text-stone-400 text-sm">此任务已完美终结<br>你的大脑变得更强了！</p>
+                    <div class="mt-8 text-xs text-stone-300">点击任意处关闭</div>
+                </div>
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        // --- 全局配置 ---
+        const DB_KEY = 'ebbinghaus_tasks_v10_realtime'; 
+        let tasks = [];
+        let currentTaskId = null;
+        let currentAddType = 'short';
+        let myChart = null;
+
+        const intervalsLong = [
+            { day: 0, label: "首次" },
+            { day: 1, label: "1复习" },
+            { day: 2, label: "2复习" },
+            { day: 4, label: "3复习" },
+            { day: 7, label: "4复习" },
+            { day: 15, label: "5复习" },
+            { day: 30, label: "6复习" }
+        ];
+
+        const intervalsShort = [
+            { min: 0, label: "首次" },
+            { min: 5, label: "5分" },
+            { min: 30, label: "30分" },
+            { min: 60, label: "1时" },
+            { min: 720, label: "12时" }
+        ];
+
+        document.addEventListener('DOMContentLoaded', () => {
+            loadTasks();
+            renderHome();
+            
+            // --- 核心更新：实时刷新逻辑 ---
+            // 每10秒检查一次当前页面状态并刷新
+            setInterval(() => {
+                const homeView = document.getElementById('view-home');
+                const detailView = document.getElementById('view-detail');
+                
+                // 如果在首页，刷新首页列表
+                if (!homeView.classList.contains('hidden')) {
+                    renderHome();
+                }
+                // 如果在详情页，且不在编辑标题状态，刷新时间轴
+                else if (!detailView.classList.contains('hidden')) {
+                    const isEditing = !document.getElementById('detail-title-input').classList.contains('hidden');
+                    if (!isEditing) {
+                        renderDetail(); 
+                    }
+                }
+            }, 10000); // 10秒一次，既省电又流畅
+        });
+
+        function loadTasks() {
+            try {
+                const stored = localStorage.getItem(DB_KEY);
+                if (stored) tasks = JSON.parse(stored);
+            } catch(e) { console.error(e); }
+        }
+
+        function saveTasks() {
+            localStorage.setItem(DB_KEY, JSON.stringify(tasks));
+        }
+
+        // --- 删除逻辑 ---
+        window.deleteTask = function(event, idStr) {
+            if(event) {
+                event.stopPropagation();
+                event.stopImmediatePropagation();
+                event.preventDefault();
+            }
+            const targetId = Number(idStr);
+            tasks = tasks.filter(t => Number(t.id) !== targetId);
+            saveTasks();
+            renderHome();
+        };
+
+        // --- 标题编辑逻辑 ---
+        function startEditTitle() {
+            const h2 = document.getElementById('detail-title');
+            const input = document.getElementById('detail-title-input');
+            const icon = h2.nextElementSibling;
+            h2.classList.add('hidden');
+            icon.classList.add('hidden');
+            input.classList.remove('hidden');
+            input.value = h2.innerText;
+            input.focus();
+        }
+
+        function saveEditTitle() {
+            const h2 = document.getElementById('detail-title');
+            const input = document.getElementById('detail-title-input');
+            const icon = h2.nextElementSibling;
+            const newTitle = input.value.trim();
+            if (newTitle) {
+                h2.innerText = newTitle;
+                const task = tasks.find(t => Number(t.id) === currentTaskId);
+                if (task) {
+                    task.title = newTitle;
+                    saveTasks();
+                }
+            }
+            input.classList.add('hidden');
+            h2.classList.remove('hidden');
+            icon.classList.remove('hidden');
+        }
+
+        function handleEditKey(event) {
+            if (event.key === 'Enter') {
+                document.getElementById('detail-title-input').blur();
+            }
+        }
+
+        function getTaskConfig(type) {
+            return type === 'short' ? intervalsShort : intervalsLong;
+        }
+
+        function renderHome() {
+            const listShort = document.getElementById('list-short');
+            const listLong = document.getElementById('list-long');
+            // 注意：重绘会导致滚动条归位，但在首页每10秒微调一次通常不会打断操作
+            // 如果体验不好，可以优化为只更新文本，但完全重绘代码最简单稳健
+            listShort.innerHTML = '';
+            listLong.innerHTML = '';
+
+            const shortTasks = tasks.filter(t => t.type === 'short');
+            const longTasks = tasks.filter(t => t.type === 'long');
+
+            document.getElementById('count-short').innerText = `${shortTasks.length}/9`;
+            document.getElementById('count-long').innerText = `${longTasks.length}/9`;
+
+            const renderCard = (task) => {
+                const config = getTaskConfig(task.type);
+                const doneCount = task.checks.filter(c => c).length;
+                const total = config.length;
+                const now = new Date();
+                const startDate = new Date(task.date);
+
+                let nextStatusText = "已完成";
+                let isUrgent = false;
+
+                const isAllDone = task.checks.every(Boolean);
+
+                if (isAllDone) {
+                    nextStatusText = "🏆 完美";
+                } else {
+                    for(let i=0; i<config.length; i++) {
+                        if(!task.checks[i]) {
+                            if (task.type === 'short') {
+                                const targetTime = new Date(startDate.getTime() + config[i].min * 60000);
+                                const diffMins = Math.ceil((targetTime - now) / 60000);
+                                if (diffMins < 0) { nextStatusText = `过期${Math.abs(diffMins)}分`; isUrgent = true; }
+                                else if (diffMins <= 10) { nextStatusText = `${diffMins}分后`; isUrgent = true; }
+                                else if (diffMins > 60) { nextStatusText = `${Math.floor(diffMins/60)}小时后`; }
+                                else { nextStatusText = `${diffMins}分后`; }
+                            } else {
+                                const todayZero = new Date(now); todayZero.setHours(0,0,0,0);
+                                const startZero = new Date(startDate); startZero.setHours(0,0,0,0);
+                                const targetDate = new Date(startZero); targetDate.setDate(startZero.getDate() + config[i].day);
+                                const diffDays = Math.ceil((targetDate - todayZero) / (1000 * 60 * 60 * 24));
+                                if (diffDays < 0) { nextStatusText = "已过期"; isUrgent = true; }
+                                else if (diffDays === 0) { nextStatusText = "今天"; isUrgent = true; }
+                                else { nextStatusText = `${diffDays}天后`; }
+                            }
+                            break;
+                        }
+                    }
+                }
+
+                let timeDisplay = "";
+                if (task.type === 'short') {
+                    const h = startDate.getHours().toString().padStart(2, '0');
+                    const m = startDate.getMinutes().toString().padStart(2, '0');
+                    const mo = startDate.getMonth() + 1;
+                    const d = startDate.getDate();
+                    timeDisplay = `${mo}-${d} ${h}:${m}`;
+                } else {
+                    timeDisplay = task.date; 
+                }
+
+                return `
+                    <div class="bg-white rounded-2xl p-3 flex flex-col justify-between aspect-square card-shadow relative overflow-hidden group">
+                        <div onclick="openTask('${task.id}')" class="absolute inset-0 z-10 cursor-pointer active:scale-95 transition-transform origin-center bg-transparent"></div>
+                        <div class="delete-btn-wrapper" onclick="deleteTask(event, '${task.id}')">
+                            <div class="delete-btn">
+                                <i class="ph-bold ph-trash text-lg"></i>
+                            </div>
+                        </div>
+                        <div class="flex-1 mt-3 pointer-events-none">
+                            <div class="text-[10px] text-stone-400 font-bold mb-1 truncate tracking-tight">${timeDisplay}</div>
+                            <div class="font-bold text-stone-800 leading-tight line-clamp-2 text-sm">${task.title}</div>
+                        </div>
+                        <div class="mt-2 flex justify-between items-end pointer-events-none">
+                            <div class="text-[10px] bg-stone-100 px-1.5 py-0.5 rounded text-stone-500 font-medium">
+                                ${doneCount}/${total}
+                            </div>
+                            <div class="text-[10px] font-bold ${isUrgent ? 'text-rose-500' : (isAllDone ? 'text-amber-500' : 'text-stone-400')} truncate ml-1">
+                                ${nextStatusText}
+                            </div>
+                        </div>
+                    </div>
+                `;
+            };
+
+            const addBtn = (type) => `
+                <div onclick="openAddPage('${type}')" 
+                     class="border-2 border-dashed ${type==='short'?'btn-add-pink':'btn-add-green'} rounded-2xl flex flex-col items-center justify-center aspect-square cursor-pointer active:scale-95 transition-all hover:bg-white">
+                    <i class="ph-bold ph-plus text-2xl mb-1 opacity-50"></i>
+                    <span class="text-xs font-bold opacity-70">新建任务</span>
+                </div>
+            `;
+
+            shortTasks.forEach(t => listShort.innerHTML += renderCard(t));
+            if(shortTasks.length < 9) listShort.innerHTML += addBtn('short');
+
+            longTasks.forEach(t => listLong.innerHTML += renderCard(t));
+            if(longTasks.length < 9) listLong.innerHTML += addBtn('long');
+        }
+
+        function switchView(viewName) {
+            ['view-home', 'view-add', 'view-detail'].forEach(id => {
+                document.getElementById(id).classList.add('hidden');
+            });
+            document.getElementById(`view-${viewName}`).classList.remove('hidden');
+
+            if (viewName === 'home') renderHome();
+            else if (viewName === 'add') {
+                document.getElementById('input-title').value = '';
+                document.getElementById('input-title').focus();
+            } else if (viewName === 'detail') renderDetail();
+        }
+
+        function openAddPage(type) {
+            currentAddType = type;
+            switchView('add');
+            
+            const badge = document.getElementById('add-type-badge');
+            const bgBlob = document.getElementById('add-bg-blob');
+            const dateInput = document.getElementById('input-date');
+            const dateLabel = document.getElementById('label-date');
+
+            const now = new Date();
+            const localIso = new Date(now.getTime() - (now.getTimezoneOffset() * 60000)).toISOString().slice(0, 16);
+            const todayIso = now.toISOString().split('T')[0];
+
+            if (type === 'short') {
+                badge.className = 'w-full text-center py-4 rounded-2xl font-bold transition-all text-lg flex items-center justify-center gap-2 bg-pink-50 text-pink-600 border-2 border-pink-200 cursor-default';
+                badge.innerHTML = '<i class="ph-fill ph-lightning"></i> 短期记忆 (分钟)';
+                bgBlob.className = "absolute -top-20 -right-20 w-64 h-64 bg-pink-100 rounded-full blur-3xl pointer-events-none opacity-60";
+                
+                dateLabel.innerText = "学习时间 (精确到分)";
+                dateInput.type = "datetime-local";
+                dateInput.value = localIso; 
+            } else {
+                badge.className = 'w-full text-center py-4 rounded-2xl font-bold transition-all text-lg flex items-center justify-center gap-2 bg-green-50 text-green-600 border-2 border-green-200 cursor-default';
+                badge.innerHTML = '<i class="ph-fill ph-brain"></i> 长期记忆 (天)';
+                bgBlob.className = "absolute -top-20 -right-20 w-64 h-64 bg-green-100 rounded-full blur-3xl pointer-events-none opacity-60";
+                
+                dateLabel.innerText = "学习日期";
+                dateInput.type = "date";
+                dateInput.value = todayIso;
+            }
+        }
+
+        function createTask() {
+            const title = document.getElementById('input-title').value.trim();
+            const dateStr = document.getElementById('input-date').value;
+            const type = currentAddType;
+
+            if(!title || !dateStr) { alert("请完整填写内容"); return; }
+
+            const newTask = {
+                id: Date.now(),
+                title: title,
+                date: dateStr, 
+                type: type,
+                checks: new Array(getTaskConfig(type).length).fill(false)
+            };
+
+            tasks.push(newTask);
+            saveTasks();
+            currentTaskId = newTask.id;
+            switchView('detail');
+        }
+
+        function deleteCurrentTask() {
+            tasks = tasks.filter(t => Number(t.id) !== currentTaskId);
+            saveTasks();
+            switchView('home');
+        }
+
+        function openTask(idStr) {
+            currentTaskId = Number(idStr);
+            switchView('detail');
+        }
+
+        function renderDetail() {
+            const task = tasks.find(t => Number(t.id) === currentTaskId);
+            if(!task) return switchView('home'); 
+
+            // 如果不在编辑状态，更新标题（防止覆盖用户的输入）
+            if (document.getElementById('detail-title-input').classList.contains('hidden')) {
+                document.getElementById('detail-title').innerText = task.title;
+            }
+
+            const config = getTaskConfig(task.type);
+            const doneCount = task.checks.filter(c => c).length;
+            document.getElementById('detail-progress').innerText = `${doneCount}/${config.length} 已完成`;
+            
+            if (task.type === 'short') {
+                document.getElementById('detail-cycle-val').innerText = "12";
+                document.getElementById('detail-cycle-unit').innerText = "小时周期";
+                document.getElementById('chart-tag').innerText = "短期突击";
+                document.getElementById('chart-tag').className = "text-[10px] text-pink-500 bg-pink-50 px-2 py-1 rounded font-bold";
+            } else {
+                document.getElementById('detail-cycle-val').innerText = "30";
+                document.getElementById('detail-cycle-unit').innerText = "天周期";
+                document.getElementById('chart-tag').innerText = "艾宾浩斯";
+                document.getElementById('chart-tag').className = "text-[10px] text-green-600 bg-green-50 px-2 py-1 rounded font-bold";
+            }
+
+            const container = document.getElementById('timeline-container');
+            container.innerHTML = ''; 
+
+            const now = new Date();
+            const startDate = new Date(task.date);
+
+            config.forEach((item, index) => {
+                let targetDate, statusText, stateClass, icon;
+                const isChecked = task.checks[index];
+
+                if (task.type === 'short') {
+                    targetDate = new Date(startDate.getTime() + item.min * 60000);
+                    const diffMins = Math.ceil((targetDate - now) / 60000);
+                    
+                    if (isChecked) {
+                        stateClass = "state-done";
+                        statusText = "已完成";
+                        icon = '<i class="ph-fill ph-check-circle text-emerald-500"></i>';
+                    } else {
+                        if (diffMins < 0) {
+                            stateClass = "state-missed";
+                            statusText = `过期${Math.abs(diffMins)}分`;
+                            icon = '<i class="ph-fill ph-warning text-stone-300"></i>';
+                        } else if (diffMins <= 10) {
+                            stateClass = "state-today";
+                            statusText = "🔥 马上复习";
+                            icon = '<i class="ph-fill ph-alarm text-rose-500"></i>';
+                        } else {
+                            stateClass = "border-stone-100 bg-white";
+                            statusText = `${diffMins}分后`;
+                            icon = '<i class="ph-bold ph-clock text-stone-300"></i>';
+                        }
+                    }
+                } else {
+                    const startZero = new Date(startDate); startZero.setHours(0,0,0,0);
+                    targetDate = new Date(startZero); targetDate.setDate(startZero.getDate() + item.day);
+                    const todayZero = new Date(now); todayZero.setHours(0,0,0,0);
+                    const diffDays = Math.ceil((targetDate - todayZero) / (1000 * 60 * 60 * 24));
+
+                    if (isChecked) {
+                        stateClass = "state-done";
+                        statusText = "已完成";
+                        icon = '<i class="ph-fill ph-check-circle text-emerald-500"></i>';
+                    } else {
+                        if (diffDays < 0) {
+                            stateClass = "state-missed";
+                            statusText = `过期${Math.abs(diffDays)}天`;
+                            icon = '<i class="ph-fill ph-flag text-stone-300"></i>';
+                        } else if (diffDays === 0) {
+                            stateClass = "state-today";
+                            statusText = "🔥 今天复习";
+                            icon = '<i class="ph-fill ph-alarm text-rose-500"></i>';
+                        } else {
+                            stateClass = "border-stone-100 bg-white";
+                            statusText = `${diffDays}天后`;
+                            icon = '<i class="ph-bold ph-calendar text-stone-300"></i>';
+                        }
+                    }
+                }
+
+                let dateStr = "";
+                if (task.type === 'short') {
+                    const h = targetDate.getHours().toString().padStart(2, '0');
+                    const m = targetDate.getMinutes().toString().padStart(2, '0');
+                    dateStr = `${h}:${m}`;
+                } else {
+                    dateStr = `${targetDate.getMonth()+1}月${targetDate.getDate()}日`;
+                }
+
+                const html = `
+                    <div class="flex gap-3 relative mb-3 group animate-slide-up" style="animation-delay: ${index*0.05}s">
+                        ${index !== config.length - 1 ? '<div class="absolute top-6 left-[15px] bottom-[-20px] w-0.5 bg-stone-200 -z-10"></div>' : ''}
+                        <div class="pt-3 relative z-10">
+                            <div class="w-8 h-8 rounded-full bg-white border border-stone-100 flex items-center justify-center shadow-sm text-lg">${icon}</div>
+                        </div>
+                        <div onclick="toggleCheck(${index})" class="flex-1 p-3 rounded-2xl border ${stateClass} transition-all active:scale-[0.98] cursor-pointer flex justify-between items-center relative overflow-hidden">
+                            <div>
+                                <div class="flex items-center gap-2 mb-1">
+                                    <span class="text-[10px] font-bold uppercase tracking-wider text-stone-400 bg-white/50 px-1.5 rounded">${item.label}</span>
+                                    <span class="text-xs ${isChecked ? 'text-emerald-600 font-bold' : (statusText.includes('🔥') ? 'text-rose-500 font-bold':'text-stone-400')} transition-colors">${statusText}</span>
+                                </div>
+                                <div class="text-base font-bold text-stone-700 font-mono main-text">
+                                    ${dateStr} 
+                                    ${task.type === 'long' ? `<span class="text-xs font-normal text-stone-400 ml-1">${["周日","周一","周二","周三","周四","周五","周六"][targetDate.getDay()]}</span>` : ''}
+                                </div>
+                            </div>
+                            <div class="w-6 h-6 rounded-full border-2 flex items-center justify-center transition-all ${isChecked ? 'bg-emerald-500 border-emerald-500' : 'border-stone-200 bg-white'}">
+                                <i class="ph-bold ph-check text-white text-xs ${isChecked ? 'opacity-100' : 'opacity-0'}"></i>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                container.innerHTML += html;
+            });
+            initDetailChart(task.type);
+        }
+
+        function toggleCheck(index) {
+            const task = tasks.find(t => Number(t.id) === currentTaskId);
+            if(task) {
+                task.checks[index] = !task.checks[index];
+                saveTasks();
+                renderDetail();
+
+                const isAllDone = task.checks.every(c => c === true);
+                if (isAllDone) {
+                    triggerCelebration();
+                }
+            }
+        }
+
+        function triggerCelebration() {
+            var duration = 3 * 1000;
+            var animationEnd = Date.now() + duration;
+            var defaults = { startVelocity: 30, spread: 360, ticks: 60, zIndex: 60 };
+
+            function randomInRange(min, max) {
+              return Math.random() * (max - min) + min;
+            }
+
+            var interval = setInterval(function() {
+              var timeLeft = animationEnd - Date.now();
+
+              if (timeLeft <= 0) {
+                return clearInterval(interval);
+              }
+
+              var particleCount = 50 * (timeLeft / duration);
+              confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.1, 0.3), y: Math.random() - 0.2 } }));
+              confetti(Object.assign({}, defaults, { particleCount, origin: { x: randomInRange(0.7, 0.9), y: Math.random() - 0.2 } }));
+            }, 250);
+
+            const modal = document.getElementById('celebration-modal');
+            modal.classList.remove('hidden');
+            modal.classList.add('flex');
+        }
+
+        window.closeCelebration = function() {
+            const modal = document.getElementById('celebration-modal');
+            modal.classList.add('hidden');
+            modal.classList.remove('flex');
+        }
+
+        function initDetailChart(type) {
+            const ctx = document.getElementById('memoryChart').getContext('2d');
+            if(myChart) myChart.destroy();
+
+            let labels, xTitle, dataPoints, forgetPoints;
+
+            if (type === 'short') {
+                labels = ['0', '5分', '30分', '1时', '12时'];
+                xTitle = '时间 (Time)';
+                dataPoints = [100, 100, 95, 90, 85];
+                forgetPoints = [100, 60, 40, 30, 10];
+            } else {
+                labels = ['0', '1', '2', '4', '7', '15', '30'];
+                xTitle = '天数 (Days)';
+                dataPoints = [100, 100, 95, 90, 85, 90, 95];
+                forgetPoints = [100, 33, 28, 25, 21, 15, 10];
+            }
+
+            myChart = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: labels,
+                    datasets: [
+                        {
+                            label: '复习后记忆',
+                            data: dataPoints,
+                            borderColor: '#F43F5E',
+                            backgroundColor: (context) => {
+                                const ctx = context.chart.ctx;
+                                const gradient = ctx.createLinearGradient(0, 0, 0, 200);
+                                gradient.addColorStop(0, 'rgba(244,63,94,0.15)');
+                                gradient.addColorStop(1, 'rgba(244,63,94,0)');
+                                return gradient;
+                            },
+                            borderWidth: 3,
+                            pointBackgroundColor: '#fff',
+                            pointBorderColor: '#F43F5E',
+                            pointRadius: 5,
+                            fill: true,
+                            tension: 0.4
+                        },
+                        {
+                            label: '自然遗忘',
+                            data: forgetPoints,
+                            borderColor: '#E5E7EB',
+                            borderWidth: 2,
+                            borderDash: [5, 5],
+                            pointRadius: 0,
+                            fill: false,
+                            tension: 0.4
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: true, position: 'top', align: 'end', labels: { boxWidth: 10, usePointStyle: true, font: { size: 10 } } }
+                    },
+                    scales: {
+                        x: { display: true, title: { display: true, text: xTitle, color: '#A8A29E', font: { size: 10 } }, grid: { display: false }, ticks: { font: { size: 10 }, color: '#A8A29E' } },
+                        y: { display: true, min: 0, max: 110, title: { display: true, text: '记忆保留率 (%)', color: '#A8A29E', font: { size: 10 } }, grid: { color: '#F9FAFB', borderDash: [2, 2] }, ticks: { display: false } }
+                    },
+                    interaction: { mode: 'index', intersect: false }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
