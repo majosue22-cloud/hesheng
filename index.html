@@ -3,23 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>记忆面包 - 学习计划管理</title>
+    <title>艾宾浩斯管理器</title>
+    <!-- 基础样式库 -->
     <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 图表库 -->
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <!-- 引入图标库 -->
+    <!-- 图标库 -->
     <script src="https://unpkg.com/@phosphor-icons/web"></script>
-    <!-- 引入礼花特效库 -->
+    <!-- 礼花特效库 -->
     <script src="https://cdn.jsdelivr.net/npm/canvas-confetti@1.6.0/dist/confetti.browser.min.js"></script>
+    <!-- 字体 -->
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@400;500;700&display=swap" rel="stylesheet">
+    
     <style>
+        /* 全局基础设置 */
         body {
             font-family: 'Noto Sans SC', sans-serif;
             background-color: #FAFAF9;
             color: #44403C;
             -webkit-tap-highlight-color: transparent;
         }
+        /* 隐藏滚动条 */
         ::-webkit-scrollbar { width: 0px; background: transparent; }
         
+        /* 动画定义 */
         .fade-in { animation: fadeIn 0.3s ease-out forwards; }
         .slide-up { animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) forwards; }
         .pop-in { animation: popIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275) forwards; }
@@ -28,17 +35,16 @@
         @keyframes slideUp { from { transform: translateY(20px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
         @keyframes popIn { from { transform: scale(0.5); opacity: 0; } to { transform: scale(1); opacity: 1; } }
 
-        /* 马卡龙配色 - 短期（粉） */
+        /* 马卡龙配色系统 */
         .bg-macaron-pink { background-color: #FFF0F5; border: 1px solid #FBCFE8; } 
         .text-macaron-pink-dark { color: #9D174D; } 
         .btn-add-pink { border-color: #FBCFE8; background-color: rgba(255, 255, 255, 0.6); color: #DB2777; }
 
-        /* 马卡龙配色 - 长期（绿） */
         .bg-macaron-green { background-color: #F0FDF4; border: 1px solid #BBF7D0; }
         .text-macaron-green-dark { color: #166534; } 
         .btn-add-green { border-color: #BBF7D0; background-color: rgba(255, 255, 255, 0.6); color: #16A34A; }
         
-        /* 状态样式 */
+        /* 状态标记样式 */
         .state-done { background-color: #ECFDF5; border-color: #A7F3D0; }
         .state-done .status-text { color: #059669; }
         .state-missed { background-color: #F5F5F4; border-color: #E7E5E4; opacity: 0.8; }
@@ -46,15 +52,16 @@
         .state-today { background-color: #FFF1F2; border-color: #FECDD3; box-shadow: 0 4px 6px -1px rgba(244, 63, 94, 0.1); }
         .state-today .status-text { color: #E11D48; font-weight: bold; }
         
+        /* 卡片阴影与交互 */
         .card-shadow { box-shadow: 0 4px 20px -2px rgba(0, 0, 0, 0.05); }
         .btn-press:active { transform: scale(0.95); }
 
-        /* 删除按钮样式 */
+        /* 删除按钮 */
         .delete-btn-wrapper {
             position: absolute;
             top: 4px;
             right: 4px;
-            z-index: 50;
+            z-index: 50; /* 保证最上层 */
             width: 40px;
             height: 40px;
             display: flex;
@@ -62,8 +69,8 @@
             justify-content: center;
         }
         .delete-btn {
-            width: 32px;
-            height: 32px;
+            width: 28px;
+            height: 28px;
             border-radius: 50%;
             background: rgba(255, 255, 255, 0.95);
             border: 1px solid #FEE2E2;
@@ -75,9 +82,10 @@
             cursor: pointer;
             transition: all 0.2s;
         }
+        .delete-btn i { font-size: 14px; }
         .delete-btn:active { transform: scale(0.9); background: #FECACA; }
 
-        /* 荣誉弹窗样式 */
+        /* 弹窗遮罩 */
         .modal-overlay {
             background-color: rgba(255, 255, 255, 0.85);
             backdrop-filter: blur(8px);
@@ -86,19 +94,18 @@
 </head>
 <body class="min-h-screen pb-safe">
 
-    <!-- 页面容器 -->
     <div id="app" class="max-w-md mx-auto min-h-screen relative overflow-hidden bg-stone-50">
         
-        <!-- View 1: 首页列表 (Home) -->
+        <!-- View 1: 首页列表 -->
         <div id="view-home" class="p-6 pb-24 min-h-screen flex flex-col gap-6 fade-in">
             <header class="text-center mt-4 mb-2">
                 <h1 class="text-3xl font-bold text-stone-800 tracking-tight flex items-center justify-center gap-2">
-                    我的计划列表 <i class="ph-fill ph-notebook text-rose-400"></i>
+                    艾宾浩斯管理器 <i class="ph-fill ph-notebook text-rose-400"></i>
                 </h1>
                 <p class="text-stone-400 text-xs mt-1">坚持复习，对抗遗忘</p>
             </header>
 
-            <!-- 短期记忆区 (马卡龙粉) -->
+            <!-- 短期记忆区 -->
             <section class="bg-macaron-pink rounded-[2rem] p-5 shadow-sm transition-all">
                 <div class="flex justify-between items-center mb-4 px-1">
                     <h2 class="text-lg font-bold text-macaron-pink-dark flex items-center gap-2">
@@ -109,7 +116,7 @@
                 <div class="grid grid-cols-3 gap-3" id="list-short"></div>
             </section>
 
-            <!-- 长期记忆区 (马卡龙绿) -->
+            <!-- 长期记忆区 -->
             <section class="bg-macaron-green rounded-[2rem] p-5 shadow-sm transition-all">
                 <div class="flex justify-between items-center mb-4 px-1">
                     <h2 class="text-lg font-bold text-macaron-green-dark flex items-center gap-2">
@@ -121,7 +128,7 @@
             </section>
         </div>
 
-        <!-- View 2: 新建任务页 (Add) -->
+        <!-- View 2: 新建任务页 -->
         <div id="view-add" class="hidden absolute inset-0 z-20 bg-white p-6 flex flex-col">
             <div id="add-bg-blob" class="absolute -top-20 -right-20 w-64 h-64 bg-pink-100 rounded-full blur-3xl pointer-events-none opacity-60"></div>
             
@@ -159,16 +166,16 @@
             </div>
         </div>
 
-        <!-- View 3: 详情页 (Detail) -->
+        <!-- View 3: 详情页 -->
         <div id="view-detail" class="hidden absolute inset-0 z-30 bg-stone-50 overflow-y-auto">
             <div class="max-w-md mx-auto min-h-screen flex flex-col">
-                <!-- 头部区域 -->
+                <!-- 顶部导航 -->
                 <div class="sticky top-0 bg-stone-50/90 backdrop-blur-md z-40 px-6 py-4 flex justify-between items-center border-b border-stone-100">
                     <button onclick="switchView('home')" class="p-2 -ml-2 text-stone-500 hover:text-stone-800 btn-press">
                         <i class="ph-bold ph-caret-left text-xl"></i>
                     </button>
                     
-                    <!-- 可编辑标题区域 -->
+                    <!-- 标题编辑区 -->
                     <div class="flex-1 flex justify-center items-center relative mx-4 h-8" onclick="startEditTitle()">
                         <h2 id="detail-title" class="text-lg font-bold text-stone-800 truncate max-w-[180px] cursor-pointer hover:opacity-70 transition-opacity">任务标题</h2>
                         <i class="ph-bold ph-pencil-simple text-stone-300 ml-1 text-sm pointer-events-none"></i>
@@ -191,8 +198,10 @@
                             <span class="text-xs text-stone-500 font-medium" id="detail-cycle-unit">天周期</span>
                         </div>
                     </div>
+                    <!-- 时间轴容器 -->
                     <div id="timeline-container" class="flex flex-col relative pb-4"></div>
                     
+                    <!-- 图表容器 -->
                     <div class="bg-white rounded-3xl p-5 shadow-sm border border-stone-100 mb-8">
                         <div class="flex justify-between items-center mb-4">
                             <h3 class="text-sm font-bold text-stone-800 flex items-center gap-2">
@@ -227,13 +236,16 @@
     </div>
 
     <script>
-        // --- 全局配置 ---
-        const DB_KEY = 'ebbinghaus_tasks_v10_realtime'; 
+        // --- 核心配置 ---
+        // 使用一个固定的 Key，不再随版本变化，确保长期记忆
+        const DB_KEY = 'ebbinghaus_core_data'; 
+        
         let tasks = [];
         let currentTaskId = null;
         let currentAddType = 'short';
         let myChart = null;
 
+        // 长期记忆配置（天）
         const intervalsLong = [
             { day: 0, label: "首次" },
             { day: 1, label: "1复习" },
@@ -244,6 +256,7 @@
             { day: 30, label: "6复习" }
         ];
 
+        // 短期记忆配置（分）
         const intervalsShort = [
             { min: 0, label: "首次" },
             { min: 5, label: "5分" },
@@ -252,55 +265,67 @@
             { min: 720, label: "12时" }
         ];
 
+        // --- 初始化与自动刷新 ---
         document.addEventListener('DOMContentLoaded', () => {
             loadTasks();
             renderHome();
             
-            // --- 核心更新：实时刷新逻辑 ---
-            // 每10秒检查一次当前页面状态并刷新
+            // 每30秒自动刷新一次界面，更新相对时间（例如：从"1分钟后"变为"过期1分钟"）
             setInterval(() => {
                 const homeView = document.getElementById('view-home');
                 const detailView = document.getElementById('view-detail');
                 
-                // 如果在首页，刷新首页列表
+                // 只有当页面可见时才刷新，节省资源
                 if (!homeView.classList.contains('hidden')) {
                     renderHome();
                 }
-                // 如果在详情页，且不在编辑标题状态，刷新时间轴
                 else if (!detailView.classList.contains('hidden')) {
+                    // 如果正在编辑标题，暂时不刷新，避免输入框重置
                     const isEditing = !document.getElementById('detail-title-input').classList.contains('hidden');
                     if (!isEditing) {
                         renderDetail(); 
                     }
                 }
-            }, 10000); // 10秒一次，既省电又流畅
+            }, 30000); 
         });
 
+        // --- 数据存取逻辑 ---
         function loadTasks() {
             try {
                 const stored = localStorage.getItem(DB_KEY);
-                if (stored) tasks = JSON.parse(stored);
-            } catch(e) { console.error(e); }
+                if (stored) {
+                    tasks = JSON.parse(stored);
+                }
+            } catch(e) { 
+                console.error("读取数据失败:", e); 
+                // 如果出错，保持 tasks 为空数组，避免程序崩溃
+            }
         }
 
         function saveTasks() {
-            localStorage.setItem(DB_KEY, JSON.stringify(tasks));
+            try {
+                localStorage.setItem(DB_KEY, JSON.stringify(tasks));
+            } catch(e) {
+                console.error("保存数据失败，可能是存储空间已满:", e);
+                alert("保存失败！请清理浏览器缓存或导出数据备份。");
+            }
         }
 
-        // --- 删除逻辑 ---
+        // --- 极速删除 (带防穿透) ---
         window.deleteTask = function(event, idStr) {
             if(event) {
                 event.stopPropagation();
                 event.stopImmediatePropagation();
                 event.preventDefault();
             }
+            
             const targetId = Number(idStr);
             tasks = tasks.filter(t => Number(t.id) !== targetId);
             saveTasks();
-            renderHome();
+            renderHome(); // 立即重绘
         };
 
-        // --- 标题编辑逻辑 ---
+        // --- 标题编辑 ---
         function startEditTitle() {
             const h2 = document.getElementById('detail-title');
             const input = document.getElementById('detail-title-input');
@@ -340,11 +365,10 @@
             return type === 'short' ? intervalsShort : intervalsLong;
         }
 
+        // --- 渲染首页 ---
         function renderHome() {
             const listShort = document.getElementById('list-short');
             const listLong = document.getElementById('list-long');
-            // 注意：重绘会导致滚动条归位，但在首页每10秒微调一次通常不会打断操作
-            // 如果体验不好，可以优化为只更新文本，但完全重绘代码最简单稳健
             listShort.innerHTML = '';
             listLong.innerHTML = '';
 
@@ -404,22 +428,22 @@
                 }
 
                 return `
-                    <div class="bg-white rounded-2xl p-3 flex flex-col justify-between aspect-square card-shadow relative overflow-hidden group">
+                    <div class="bg-white rounded-2xl p-2.5 flex flex-col justify-between aspect-square card-shadow relative overflow-hidden group">
                         <div onclick="openTask('${task.id}')" class="absolute inset-0 z-10 cursor-pointer active:scale-95 transition-transform origin-center bg-transparent"></div>
                         <div class="delete-btn-wrapper" onclick="deleteTask(event, '${task.id}')">
                             <div class="delete-btn">
-                                <i class="ph-bold ph-trash text-lg"></i>
+                                <i class="ph-bold ph-trash"></i>
                             </div>
                         </div>
                         <div class="flex-1 mt-3 pointer-events-none">
-                            <div class="text-[10px] text-stone-400 font-bold mb-1 truncate tracking-tight">${timeDisplay}</div>
-                            <div class="font-bold text-stone-800 leading-tight line-clamp-2 text-sm">${task.title}</div>
+                            <div class="text-[9px] text-stone-400 font-bold mb-0.5 truncate tracking-tight">${timeDisplay}</div>
+                            <div class="font-bold text-stone-800 leading-tight line-clamp-2 text-xs">${task.title}</div>
                         </div>
-                        <div class="mt-2 flex justify-between items-end pointer-events-none">
-                            <div class="text-[10px] bg-stone-100 px-1.5 py-0.5 rounded text-stone-500 font-medium">
+                        <div class="mt-1 flex justify-between items-end pointer-events-none">
+                            <div class="text-[9px] bg-stone-100 px-1.5 py-0.5 rounded text-stone-500 font-medium">
                                 ${doneCount}/${total}
                             </div>
-                            <div class="text-[10px] font-bold ${isUrgent ? 'text-rose-500' : (isAllDone ? 'text-amber-500' : 'text-stone-400')} truncate ml-1">
+                            <div class="text-[9px] font-bold ${isUrgent ? 'text-rose-500' : (isAllDone ? 'text-amber-500' : 'text-stone-400')} truncate ml-1">
                                 ${nextStatusText}
                             </div>
                         </div>
@@ -442,6 +466,7 @@
             if(longTasks.length < 9) listLong.innerHTML += addBtn('long');
         }
 
+        // --- 视图路由 ---
         function switchView(viewName) {
             ['view-home', 'view-add', 'view-detail'].forEach(id => {
                 document.getElementById(id).classList.add('hidden');
@@ -523,7 +548,6 @@
             const task = tasks.find(t => Number(t.id) === currentTaskId);
             if(!task) return switchView('home'); 
 
-            // 如果不在编辑状态，更新标题（防止覆盖用户的输入）
             if (document.getElementById('detail-title-input').classList.contains('hidden')) {
                 document.getElementById('detail-title').innerText = task.title;
             }
@@ -756,5 +780,4 @@
         }
     </script>
 </body>
-
 </html>
